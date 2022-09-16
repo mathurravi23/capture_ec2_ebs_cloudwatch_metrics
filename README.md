@@ -1,20 +1,24 @@
+### Overview
+
+This python script captures CloudWatch metrics for Amazon EC2 and EBS volumes and generate high level summary of resource utilization (e.g. CPUUtilization, EBS volume diskIO etc.).
+
 ### Pre-requisites Installation
 
 1. Install packages:
 
-     a) Install Python, if not already installed on your local machine.
-         Linux: https://docs.python-guide.org/starting/install3/linux/
-         Windows: https://www.python.org/downloads/
+  a) Install Python, if not already installed on your local machine.
+      Linux: https://docs.python-guide.org/starting/install3/linux/
+      Windows: https://www.python.org/downloads/
 
-     b) pip3 install -r requirements.txt
+  b) pip3 install -r requirements.txt
 
-2. Configure the AWS CLI, user should have access to pull cloudwatch metrics for Amazon EC2 & Amazon EBS services:
+2. Configure the AWS CLI:
 
-    aws configure
+aws configure
 
 ### Script Configuration:
 
-This script capture CloudWatch metric for Amazon EC2 and EBS volumes attached to this EC2 instance. Script will generate output csv file with below metrics:
+Script will generate output csv file with below metrics:
 
 EC2:
 - CPUUtilization %Maximum
