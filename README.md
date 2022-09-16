@@ -2,8 +2,13 @@
 
 1. Install packages:
 
-pip3 install -r requirements.txt
+  a) Install Python, if not already installed on your local machine.
+      Linux: https://docs.python-guide.org/starting/install3/linux/
+      Windows: https://www.python.org/downloads/
 
+  b) pip3 install -r requirements.txt
+  
+  
 2. Configure the AWS CLI:
 
 aws configure
