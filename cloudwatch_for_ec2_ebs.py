@@ -1,14 +1,10 @@
 import time
 import numpy as np
 import datetime
-import sys
-#import os
 import csv
-#import logging
 import boto3
 from botocore.exceptions import ClientError
 import argparse
-from botocore.config import Config
 from datetime import datetime, timedelta
 import pandas as pd
 
