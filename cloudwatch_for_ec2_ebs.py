@@ -74,8 +74,6 @@ def get_ebs_metrics(cw_client,vol_id,metric_name,stat,unit,days_back,period):
 
 def get_ec2_metrics(cw,resource_id,metric_name,stat,unit,days_back,period):
     datapoints = {}
-   # now = datetime.datetime.now()
-    #for metric_name,unit in ec2_metrics.items():
     result = cw.get_metric_data(
        MetricDataQueries=[
           {
@@ -113,23 +111,7 @@ def main():
     session = boto3.session.Session(region_name=args.region)
     cw = session.client('cloudwatch')
     ec2 = session.resource('ec2')
-
-    csv_headers = [
-                'InstanceName',
-                'Instance Id',
-                'Instance Type',
-                'Hypervisor',
-                'Virtualization Type',
-                'Architecture',
-                'EBS Optimized',
-                'Max CPU %',
-                'Avg CPU %',
-                'EBS Volume',
-                'VolumeReadOpsSum',
-                'VolumeWriteOpsSum',
-                'VolumeReadBytesSum',
-                'VolumeWriteBytesSum'
-            ]
+    ec2_client=boto3.client('ec2')
 
     ebs_metrics = {
         'VolumeReadOps': 'Count',
@@ -150,6 +132,13 @@ def main():
     month_span = days_back/30
     output_file = args.output_file
 
+    print('#############################################')
+    print('AWS Region:',args.region)
+    print('Input File:',args.input_file)
+    print('Output File:',args.output_file)
+    print('Metric history length(days_back):',args.days_back)
+    print('#############################################')
+
 
     #Creating list of EC2 instances in-scope. This list is either supplied as input or script capture all running EC2 instances within the AWS region.
 
@@ -164,7 +153,7 @@ def main():
           for resource in ec2_resources:
              ec2_list.append(resource[0])
     if len(ec2_list) <1 :
-       print('EC2 Instance List is empty...')
+       print('EC2 Instance List is empty or no instance found!!')
     else:
         col_list = list(output_df.columns)
         output_df.to_csv(output_file, index=False, columns=(sorted(col_list, reverse=True)))
@@ -182,7 +171,16 @@ def main():
                 row_dict['Instance Type'] = instance_ids.instance_type
                 row_dict['Platform'] = instance_ids.platform
                 ebs_volumes = instance_ids.volumes.all()
+                
                 for vol in ebs_volumes:
+                    print('......collecting metrics for volume:',vol.id)
+                    vol_info = ec2_client.describe_volumes(VolumeIds=[vol.id])
+                    row_dict['Volume_Type'] = vol_info['Volumes'][0]['VolumeType']
+                    row_dict['Volume_state'] = vol_info['Volumes'][0]['State']
+                    row_dict['Volume_Allocated_Size'] = vol_info['Volumes'][0]['Size']
+                    row_dict['Volume_device'] = vol_info['Volumes'][0]['Attachments'][0]['Device']
+                    row_dict['Volume_provision_IOPS'] = vol_info['Volumes'][0]['Iops']
+                    row_dict['Volume_Encrypted'] = vol_info['Volumes'][0]['Encrypted']
                     #Generating EBS metrics per volume and writing to csv
                     for stat in ebs_stat:
                         for metric_name,unit in ebs_metrics.items():
@@ -210,17 +208,16 @@ def main():
                     row_dict = calc_avg_iop(row_dict)
                     # round off decimal values
                     df_temp = pd.DataFrame(row_dict, index=[0]).round(0)
-                    print(f'Query result: {df_temp}')
+                    #print(f'Query result: {df_temp}')
                     output_df = pd.concat([output_df, df_temp])
-
             #get dataframe column list for ordering csv columns
                 col_list = list(output_df.columns)
                 output_df.to_csv(output_file, index=False, columns=(sorted(col_list, reverse=True)))
-
             except Exception as e:
                 print(f'An error occurred during making call for EC2 instance: {instance}')
                 print(e)
                 pass
+    print(f'Output file generated as',output_file)
 
 
 if __name__ == "__main__":
