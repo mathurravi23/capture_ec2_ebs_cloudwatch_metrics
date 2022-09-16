@@ -25,12 +25,10 @@ EC2:
 - CPUUtilization %Average
 
 EBS:
-- VolumeReadOpsMaximum
-- VolumeReadBytesSum
-- VolumeWriteBytesSum
-- VolumeOpsSum
-- VolumeBytesSum
-- IoSize
+- VolumeReadOps
+- VolumeReadBytes
+- VolumeWriteBytes
+- VolumeBytes
 
 This script accepts few optional parameters as explained below.
 
