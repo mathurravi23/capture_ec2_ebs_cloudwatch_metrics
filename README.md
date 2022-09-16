@@ -2,16 +2,15 @@
 
 1. Install packages:
 
-  a) Install Python, if not already installed on your local machine.
-      Linux: https://docs.python-guide.org/starting/install3/linux/
-      Windows: https://www.python.org/downloads/
+     a) Install Python, if not already installed on your local machine.
+         Linux: https://docs.python-guide.org/starting/install3/linux/
+         Windows: https://www.python.org/downloads/
 
-  b) pip3 install -r requirements.txt
-  
-  
-2. Configure the AWS CLI:
+     b) pip3 install -r requirements.txt
 
-aws configure
+2. Configure the AWS CLI, user should have access to pull cloudwatch metrics for Amazon EC2 & Amazon EBS services:
+
+    aws configure
 
 ### Script Configuration:
 
@@ -47,7 +46,6 @@ python3 cloudwatch_for_ec2_ebs.py
 
 usage: cloudwatch_for_ec2_ebs.py [-h] [-i INPUT_FILE] [-o OUTPUT_FILE]
                                  [-r REGION] [-p PROFILE] [-d DAYS_BACK]
-
 
 ![image](https://user-images.githubusercontent.com/82545117/190685860-56be9724-3f90-4d65-ac80-da738a3a1323.png)
 
