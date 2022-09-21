@@ -44,10 +44,24 @@ This script accepts few optional parameters as explained below.
 
 ### Script Usage
 
-python3 cloudwatch_for_ec2_ebs.py
-
+$python3 cloudwatch_for_ec2_ebs.py
 usage: cloudwatch_for_ec2_ebs.py [-h] [-i INPUT_FILE] [-o OUTPUT_FILE]
-                                 [-r REGION] [-p PROFILE] [-d DAYS_BACK]
+                                 [-r REGION] [-d DAYS_BACK]
+
+Python script to collect Amazon CloudWatch metrics for Amazon EC2 instances &
+associated EBS volumes
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT_FILE, --input_file INPUT_FILE
+                        input_file
+  -o OUTPUT_FILE, --output_file OUTPUT_FILE
+                        output_file
+  -r REGION, --region REGION
+                        AWS Region
+  -d DAYS_BACK, --days_back DAYS_BACK
+                        days_back
+                        
 
 ![image](https://user-images.githubusercontent.com/82545117/190685860-56be9724-3f90-4d65-ac80-da738a3a1323.png)
 
