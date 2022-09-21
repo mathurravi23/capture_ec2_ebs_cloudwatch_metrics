@@ -10,11 +10,10 @@ import pandas as pd
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='instance check script')
+    parser = argparse.ArgumentParser(description='Python script to collect Amazon CloudWatch metrics for Amazon EC2 instances & associated EBS volumes')
     parser.add_argument('-i', '--input_file', help='input_file', type=str, required=False)
     parser.add_argument('-o', '--output_file', help='output_file', type=str, required=False)
     parser.add_argument('-r', '--region', help='AWS Region', type=str, required=False)
-    parser.add_argument("-p", "--profile", help="The credential profile to use if not using default credentials")
     parser.add_argument('-d', '--days_back', help='days_back', type=int, required=False)
     parser.set_defaults(input_file='noinput', output_file='ebs-ec2-output.csv', period=300,days_back=30,region='us-east-1')
     args = parser.parse_args()
@@ -110,8 +109,8 @@ def main():
     output_df = pd.DataFrame()
     session = boto3.session.Session(region_name=args.region)
     cw = session.client('cloudwatch')
-    ec2 = session.resource('ec2')
-    ec2_client=boto3.client('ec2')
+    #ec2 = session.resource('ec2')
+    ec2_client=session.client('ec2')
 
     ebs_metrics = {
         'VolumeReadOps': 'Count',
@@ -144,9 +143,9 @@ def main():
 
     ec2_list = []
     if input_file == 'noinput':
-       ec2_resources = ec2.instances.filter(Filters=[ {'Name': 'instance-state-name', 'Values': ['running']}])
-       for resource in ec2_resources:
-          ec2_list.append(resource.id)
+       ec2_resources = ec2_client.describe_instances(Filters=[ {'Name': 'instance-state-name', 'Values': ['running']}])
+       for i in range(len(ec2_resources['Reservations'])):
+           ec2_list.append(ec2_resources['Reservations'][i]['Instances'][0]['InstanceId'])
     else:
        with open(args.input_file,'r') as file:
           ec2_resources = csv.reader(file)
@@ -161,33 +160,52 @@ def main():
             print('...Now collecting metrics for EC2 box:',instance)
             try:
                 row_dict = {}
+ 
+                instance_details = ec2_client.describe_instances(InstanceIds=[instance])
+                tag_list = instance_details['Reservations'][0]['Instances'][0]['Tags']
+                inst_nm = ''
+                inst_nm = [nm for nm in tag_list if nm['Key'] == 'Name']
+                if inst_nm !='':
+                    row_dict['Instance_Name'] = inst_nm[0]['Value']
+                else:
+                    row_dict['Instance_Name'] = ''
+                row_dict['Instance_Id'] = instance_details['Reservations'][0]['Instances'][0]['InstanceId']
+                row_dict['Instance_Type'] = instance_details['Reservations'][0]['Instances'][0]['InstanceType']
+                row_dict['Platform'] = instance_details['Reservations'][0]['Instances'][0]['PlatformDetails'] 
+                row_dict['EbsOptimized'] = instance_details['Reservations'][0]['Instances'][0]['EbsOptimized'] 
+                row_dict['RootDeviceName'] = instance_details['Reservations'][0]['Instances'][0]['RootDeviceName']  
+                row_dict['RootDeviceType'] = instance_details['Reservations'][0]['Instances'][0]['RootDeviceType']
+
                 for metric_name,unit in ec2_metrics.items():
                     ec2_metrics_mx = get_ec2_metrics(cw,instance,metric_name,'Maximum',unit,days_back,300)
                     row_dict[metric_name+'_Max'] = max(ec2_metrics_mx[metric_name])
                     ec2_metrics_avg = get_ec2_metrics(cw,instance,metric_name,'Average',unit,days_back,300)
                     row_dict[metric_name+'_Avg'] = np.average(ec2_metrics_avg[metric_name])
+
                 #Generating list of EBS volumes attached to each ec2 instance
-                instance_ids =ec2.Instance(instance)
-                row_dict['Instance Type'] = instance_ids.instance_type
-                row_dict['Platform'] = instance_ids.platform
-                ebs_volumes = instance_ids.volumes.all()
+                vol_cnt = len(instance_details['Reservations'][0]['Instances'][0]['BlockDeviceMappings'])                 
                 
-                for vol in ebs_volumes:
-                    print('......collecting metrics for volume:',vol.id)
-                    vol_info = ec2_client.describe_volumes(VolumeIds=[vol.id])
+                for j in range(vol_cnt):
+                    vol_id = instance_details['Reservations'][0]['Instances'][0]['BlockDeviceMappings'][j]['Ebs']['VolumeId']
+
+                    print('......collecting metrics for volume:',vol_id)
+
+                    vol_info = ec2_client.describe_volumes(VolumeIds=[vol_id])
+                    row_dict['Volume_Id'] = vol_id
                     row_dict['Volume_Type'] = vol_info['Volumes'][0]['VolumeType']
+                    row_dict['Volume_Device'] = vol_info['Volumes'][0]['Attachments'][0]['Device']
                     row_dict['Volume_state'] = vol_info['Volumes'][0]['State']
-                    row_dict['Volume_Allocated_Size'] = vol_info['Volumes'][0]['Size']
-                    row_dict['Volume_device'] = vol_info['Volumes'][0]['Attachments'][0]['Device']
-                    row_dict['Volume_provision_IOPS'] = vol_info['Volumes'][0]['Iops']
+                    row_dict['Volume_Allocated_Size (GiB)'] = vol_info['Volumes'][0]['Size']
+                    row_dict['Volume_Provision_IOPS'] = vol_info['Volumes'][0]['Iops']
                     row_dict['Volume_Encrypted'] = vol_info['Volumes'][0]['Encrypted']
+             
                     #Generating EBS metrics per volume and writing to csv
                     for stat in ebs_stat:
                         for metric_name,unit in ebs_metrics.items():
                             try:
                                 time.sleep(2)
                                 df = pd.DataFrame()
-                                df = get_ebs_metrics(cw,vol.id,metric_name,stat,unit,days_back,300)
+                                df = get_ebs_metrics(cw,vol_id,metric_name,stat,unit,days_back,300)
                                 # divide by 60 seconds 1 hertz data for a 60 second period
 
                                 if stat == 'Maximum':
@@ -198,10 +216,8 @@ def main():
                              # only get Sum for throughtput stats
                                 if stat == 'Sum' and (metric_name == 'VolumeReadBytes' or 'VolumeWriteBytes' or 'VolumeReadOps' or 'VolumeWriteOps'):
                                     row_dict[metric_name + 'Sum'] = (df[metric_name].sum()/month_span)
-                                row_dict['instance_id'] = instance
-                                row_dict['ebs_vol_id'] = vol.id
                             except Exception as e:
-                                print(f'An error occurred during making call for EBS id: {vol.id}, metric: {metric_name}')
+                                print(f'An error occurred during making call for EBS id: {vol_id}, metric: {metric_name}')
                                 print(e)
                                 pass
 
@@ -212,7 +228,7 @@ def main():
                     output_df = pd.concat([output_df, df_temp])
             #get dataframe column list for ordering csv columns
                 col_list = list(output_df.columns)
-                output_df.to_csv(output_file, index=False, columns=(sorted(col_list, reverse=True)))
+                output_df.to_csv(output_file, index=False, columns=(col_list))
             except Exception as e:
                 print(f'An error occurred during making call for EC2 instance: {instance}')
                 print(e)
