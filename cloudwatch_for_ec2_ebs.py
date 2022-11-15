@@ -109,7 +109,6 @@ def main():
     output_df = pd.DataFrame()
     session = boto3.session.Session(region_name=args.region)
     cw = session.client('cloudwatch')
-    #ec2 = session.resource('ec2')
     ec2_client=session.client('ec2')
 
     ebs_metrics = {
@@ -160,7 +159,7 @@ def main():
             print('...Now collecting metrics for EC2 box:',instance)
             try:
                 row_dict = {}
- 
+
                 instance_details = ec2_client.describe_instances(InstanceIds=[instance])
                 tag_list = instance_details['Reservations'][0]['Instances'][0]['Tags']
                 inst_nm = ''
@@ -171,9 +170,9 @@ def main():
                     row_dict['Instance_Name'] = ''
                 row_dict['Instance_Id'] = instance_details['Reservations'][0]['Instances'][0]['InstanceId']
                 row_dict['Instance_Type'] = instance_details['Reservations'][0]['Instances'][0]['InstanceType']
-                row_dict['Platform'] = instance_details['Reservations'][0]['Instances'][0]['PlatformDetails'] 
-                row_dict['EbsOptimized'] = instance_details['Reservations'][0]['Instances'][0]['EbsOptimized'] 
-                row_dict['RootDeviceName'] = instance_details['Reservations'][0]['Instances'][0]['RootDeviceName']  
+                row_dict['Platform'] = instance_details['Reservations'][0]['Instances'][0]['PlatformDetails']
+                row_dict['EbsOptimized'] = instance_details['Reservations'][0]['Instances'][0]['EbsOptimized']
+                row_dict['RootDeviceName'] = instance_details['Reservations'][0]['Instances'][0]['RootDeviceName']
                 row_dict['RootDeviceType'] = instance_details['Reservations'][0]['Instances'][0]['RootDeviceType']
 
                 for metric_name,unit in ec2_metrics.items():
@@ -183,14 +182,24 @@ def main():
                     row_dict[metric_name+'_Avg'] = np.average(ec2_metrics_avg[metric_name])
 
                 #Generating list of EBS volumes attached to each ec2 instance
-                vol_cnt = len(instance_details['Reservations'][0]['Instances'][0]['BlockDeviceMappings'])                 
-                
+                vol_cnt = len(instance_details['Reservations'][0]['Instances'][0]['BlockDeviceMappings'])
+
                 for j in range(vol_cnt):
                     vol_id = instance_details['Reservations'][0]['Instances'][0]['BlockDeviceMappings'][j]['Ebs']['VolumeId']
 
                     print('......collecting metrics for volume:',vol_id)
 
                     vol_info = ec2_client.describe_volumes(VolumeIds=[vol_id])
+                    row_dict['Volume_Name'] = ''
+                    #Exception block to handle empty tag list, for volumes without any tags
+                    try:
+                        vol_tag_list = vol_info['Volumes'][0]['Tags']
+                        vol_nm = ''
+                        vol_nm = [vnm for vnm in vol_tag_list if vnm['Key'] == 'Name']
+                        if vol_nm !='':
+                            row_dict['Volume_Name'] = vol_nm[0]['Value']
+                    except Exception:
+                        pass
                     row_dict['Volume_Id'] = vol_id
                     row_dict['Volume_Type'] = vol_info['Volumes'][0]['VolumeType']
                     row_dict['Volume_Device'] = vol_info['Volumes'][0]['Attachments'][0]['Device']
@@ -198,7 +207,7 @@ def main():
                     row_dict['Volume_Allocated_Size (GiB)'] = vol_info['Volumes'][0]['Size']
                     row_dict['Volume_Provision_IOPS'] = vol_info['Volumes'][0]['Iops']
                     row_dict['Volume_Encrypted'] = vol_info['Volumes'][0]['Encrypted']
-             
+
                     #Generating EBS metrics per volume and writing to csv
                     for stat in ebs_stat:
                         for metric_name,unit in ebs_metrics.items():
