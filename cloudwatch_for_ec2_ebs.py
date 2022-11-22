@@ -109,6 +109,7 @@ def main():
     output_df = pd.DataFrame()
     session = boto3.session.Session(region_name=args.region)
     cw = session.client('cloudwatch')
+    #ec2 = session.resource('ec2')
     ec2_client=session.client('ec2')
 
     ebs_metrics = {
@@ -229,8 +230,10 @@ def main():
                                 print(f'An error occurred during making call for EBS id: {vol_id}, metric: {metric_name}')
                                 print(e)
                                 pass
-
                     row_dict = calc_avg_iop(row_dict)
+                    row_dict['Used For'] =''
+                    row_dict['SQLServer License']=''
+                    row_dict['Target']=''
                     # round off decimal values
                     df_temp = pd.DataFrame(row_dict, index=[0]).round(0)
                     #print(f'Query result: {df_temp}')
