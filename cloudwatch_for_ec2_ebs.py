@@ -206,7 +206,10 @@ def main():
                     row_dict['Volume_Device'] = vol_info['Volumes'][0]['Attachments'][0]['Device']
                     row_dict['Volume_state'] = vol_info['Volumes'][0]['State']
                     row_dict['Volume_Allocated_Size (GiB)'] = vol_info['Volumes'][0]['Size']
-                    row_dict['Volume_Provision_IOPS'] = vol_info['Volumes'][0]['Iops']
+                    if (vol_info['Volumes'][0]['VolumeType'] in ['gp2','gp3','io1','io2']):
+                        row_dict['Volume_Provision_IOPS'] = vol_info['Volumes'][0]['Iops']
+                    else:
+                        row_dict['Volume_Provision_IOPS'] = 'N/A'
                     row_dict['Volume_Encrypted'] = vol_info['Volumes'][0]['Encrypted']
 
                     #Generating EBS metrics per volume and writing to csv
